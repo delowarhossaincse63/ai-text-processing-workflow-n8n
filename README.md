@@ -181,11 +181,6 @@ Session ID | Email | Original Text | Summary | Key Points | Timestamp
 
 ---
 
-## 📹 Demo Video
-
-[Watch Demo Video](#)
-
----
 
 ## 👤 Author
 
