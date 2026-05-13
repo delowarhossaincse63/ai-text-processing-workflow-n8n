@@ -1,0 +1,244 @@
+{
+  "name": "AI Text Processing Workflow",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-processor",
+        "responseMode": "onReceived",
+        "options": {
+          "responseData": "lastNode"
+        }
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 200]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.7,
+        "maxTokens": 300,
+        "prompt": "Summarize the following text in 2-4 sentences. Return only the summary text.\n\nText:\n{{$json[\"text\"]}}\n",
+        "inputFormat": "text",
+        "outputFormat": "text"
+      },
+      "name": "AI Summarization",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [550, 120]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.7,
+        "maxTokens": 300,
+        "prompt": "Extract 3 key points from the following text and return them as numbered items. Return only the key points text.\n\nText:\n{{$json[\"text\"]}}\n",
+        "inputFormat": "text",
+        "outputFormat": "text"
+      },
+      "name": "Key Points Extraction",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [550, 320]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "session_id",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"session_id\"]}}"
+            },
+            {
+              "name": "email",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"email\"]}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"text\"]}}"
+            },
+            {
+              "name": "summary",
+              "value": "={{$json[\"responseText\"] || $json[\"text\"]}}"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": false
+        }
+      },
+      "name": "Set Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [750, 120]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "session_id",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"session_id\"]}}"
+            },
+            {
+              "name": "email",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"email\"]}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$node[\"Webhook Trigger\"].json[\"text\"]}}"
+            },
+            {
+              "name": "key_points",
+              "value": "={{$json[\"responseText\"] || $json[\"text\"]}}"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": false
+        }
+      },
+      "name": "Set Key Points",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [750, 320]
+    },
+    {
+      "parameters": {
+        "mode": "mergeByIndex"
+      },
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 1,
+      "position": [950, 220]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "YOUR_GOOGLE_SHEET_ID",
+        "range": "A:E",
+        "valueInputMode": "RAW",
+        "options": {
+          "useBatch": false
+        },
+        "valueData": [
+          [
+            "={{$json[\"session_id\"]}}",
+            "={{$json[\"email\"]}}",
+            "={{$json[\"text\"]}}",
+            "={{$json[\"summary\"]}}",
+            "={{$json[\"key_points\"]}}"
+          ]
+        ]
+      },
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [1150, 220]
+    },
+    {
+      "parameters": {
+        "fromEmail": "YOUR_EMAIL@domain.com",
+        "toEmail": "={{$json[\"email\"]}}",
+        "subject": "Your AI Summary and Key Points",
+        "text": "Hello,\n\nHere is your AI summary:\n\n{{$json[\"summary\"]}}\n\nKey points:\n{{$json[\"key_points\"]}}\n\nSession ID: {{$json[\"session_id\"]}}\n\nThank you.",
+        "html": "<p>Hello,</p><p>Here is your AI summary:</p><blockquote>{{$json[\"summary\"]}}</blockquote><p>Key points:</p><pre>{{$json[\"key_points\"]}}</pre><p>Session ID: {{$json[\"session_id\"]}}</p>"
+      },
+      "name": "Email Notification",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 1,
+      "position": [1450, 220]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Summarization",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Key Points Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Summarization": {
+      "main": [
+        [
+          {
+            "node": "Set Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Key Points Extraction": {
+      "main": [
+        [
+          {
+            "node": "Set Key Points",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Summary": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Key Points": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "resumeWebhook": false,
+    "timezone": "UTC"
+  }
+}

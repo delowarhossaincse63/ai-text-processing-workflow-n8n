@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Text Processing Workflow</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 24px; max-width: 800px; margin: auto; }
+    label { display: block; margin-top: 16px; }
+    textarea, input[type="text"], input[type="email"] { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; }
+    button { margin-top: 20px; padding: 12px 18px; font-size: 1rem; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 14px; white-space: pre-wrap; word-break: break-word; }
+    .status { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>AI Text Processing Workflow</h1>
+  <p>Submit an email plus text or a URL. The backend forwards the request to n8n for AI summary, key points, Google Sheets logging and email notification.</p>
+
+  <form id="workflow-form">
+    <label>Email
+      <input type="email" id="email" placeholder="student@example.com" required />
+    </label>
+
+    <label>Input type</label>
+    <label><input type="radio" name="mode" value="text" checked /> Text</label>
+    <label><input type="radio" name="mode" value="url" /> URL</label>
+
+    <label id="text-label">Text
+      <textarea id="text" rows="8" placeholder="Artificial Intelligence is transforming healthcare..."></textarea>
+    </label>
+
+    <label id="url-label" style="display:none;">URL
+      <input type="text" id="url" placeholder="https://example.com" />
+    </label>
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <div class="status" id="status"></div>
+  <pre id="response" style="display:none;"></pre>
+
+  <script>
+    const form = document.getElementById('workflow-form');
+    const status = document.getElementById('status');
+    const responseEl = document.getElementById('response');
+    const textLabel = document.getElementById('text-label');
+    const urlLabel = document.getElementById('url-label');
+
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        textLabel.style.display = mode === 'text' ? 'block' : 'none';
+        urlLabel.style.display = mode === 'url' ? 'block' : 'none';
+      });
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      status.textContent = '';
+      responseEl.style.display = 'none';
+
+      const email = document.getElementById('email').value.trim();
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const text = document.getElementById('text').value.trim();
+      const url = document.getElementById('url').value.trim();
+
+      if (!email) {
+        status.textContent = 'Email is required.';
+        return;
+      }
+      if (mode === 'text' && !text) {
+        status.textContent = 'Text is required.';
+        return;
+      }
+      if (mode === 'url' && !url) {
+        status.textContent = 'URL is required.';
+        return;
+      }
+
+      const payload = {
+        email,
+        text: mode === 'text' ? text : '',
+        url: mode === 'url' ? url : ''
+      };
+
+      status.textContent = 'Sending request...';
+
+      try {
+        const backendUrl = 'http://127.0.0.1:8000/process';
+        const res = await fetch(backendUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const error = await res.text();
+          status.textContent = 'Backend error: ' + error;
+          return;
+        }
+
+        const result = await res.json();
+        status.textContent = 'Request sent successfully.';
+        responseEl.textContent = JSON.stringify(result, null, 2);
+        responseEl.style.display = 'block';
+      } catch (err) {
+        status.textContent = 'Failed to send request to backend.';
+        responseEl.textContent = err.toString();
+        responseEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
